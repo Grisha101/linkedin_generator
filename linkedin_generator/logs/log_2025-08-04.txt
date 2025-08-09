@@ -1,0 +1,44 @@
+[INFO] Loading CSV from C:/Users/greg/Downloads/SSI Account managment - Posts.csv
+[WARNING] Row 0 has no prompt; skipping
+[WARNING] Row 1 has no prompt; skipping
+[WARNING] Row 2 has no prompt; skipping
+[WARNING] Row 3 has no prompt; skipping
+[WARNING] Row 4 has no prompt; skipping
+[WARNING] Row 5 has no prompt; skipping
+[WARNING] Row 6 has no prompt; skipping
+[WARNING] Row 7 has no prompt; skipping
+[WARNING] Row 8 has no prompt; skipping
+[WARNING] Row 9 has no prompt; skipping
+[WARNING] Row 10 has no prompt; skipping
+[WARNING] Row 11 has no prompt; skipping
+[WARNING] Row 12 has no prompt; skipping
+[WARNING] Row 13 has no prompt; skipping
+[WARNING] Row 14 has no prompt; skipping
+[WARNING] Row 15 has no prompt; skipping
+[WARNING] Row 16 has no prompt; skipping
+[WARNING] Row 17 has no prompt; skipping
+[WARNING] Row 18 has no prompt; skipping
+[WARNING] Row 19 has no prompt; skipping
+[INFO] Generation complete.
+[INFO] Loading CSV from C:/Users/greg/Downloads/SSI Account managment - Posts.csv
+[WARNING] Row 0 has no prompt; skipping
+[WARNING] Row 1 has no prompt; skipping
+[WARNING] Row 2 has no prompt; skipping
+[WARNING] Row 3 has no prompt; skipping
+[WARNING] Row 4 has no prompt; skipping
+[WARNING] Row 5 has no prompt; skipping
+[WARNING] Row 6 has no prompt; skipping
+[WARNING] Row 7 has no prompt; skipping
+[WARNING] Row 8 has no prompt; skipping
+[WARNING] Row 9 has no prompt; skipping
+[WARNING] Row 10 has no prompt; skipping
+[WARNING] Row 11 has no prompt; skipping
+[WARNING] Row 12 has no prompt; skipping
+[WARNING] Row 13 has no prompt; skipping
+[WARNING] Row 14 has no prompt; skipping
+[WARNING] Row 15 has no prompt; skipping
+[WARNING] Row 16 has no prompt; skipping
+[WARNING] Row 17 has no prompt; skipping
+[WARNING] Row 18 has no prompt; skipping
+[WARNING] Row 19 has no prompt; skipping
+[INFO] Generation complete.
