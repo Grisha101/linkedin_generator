@@ -8,6 +8,7 @@ import threading
 import re
 import requests
 import json
+from bs4 import BeautifulSoup  # Add this import for web scraping
 
 
 class CSVAgentApp:
@@ -97,6 +98,10 @@ class CSVAgentApp:
 
             self.stop_btn = tk.Button(top_frame, text="⏹️ Stop", command=self.stop_generation, state="disabled", bg="#f6e58d", fg="#222f3e", font=("Segoe UI", 10, "bold"))
             self.stop_btn.pack(side="left", padx=5)
+
+            # Add Chat Test Button
+            self.chat_test_btn = tk.Button(top_frame, text="💬 Chat Test", command=self.open_chat_test, bg="#badc58", fg="#222f3e", font=("Segoe UI", 10, "bold"))
+            self.chat_test_btn.pack(side="left", padx=5)
 
             # --- Model & status frame ---
             model_frame = tk.Frame(self.root, bg="#f5f6fa")
@@ -504,6 +509,37 @@ class CSVAgentApp:
         self.progress_label.config(text="Stopping...")
         messagebox.showwarning("Stopping", "Generation will stop after current item completes.")
 
+    def scrape_website(self, url):
+        """Scrape the content of a website and return the text."""
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Remove script and style elements
+            for script_or_style in soup(["script", "style"]):
+                script_or_style.decompose()
+
+            # Extract visible text
+            texts = soup.stripped_strings
+            visible_text = ' '.join(texts)
+
+            # Limit the text length to avoid excessive data
+            max_length = 5000
+            if len(visible_text) > max_length:
+                visible_text = visible_text[:max_length] + " [Content truncated]"
+
+            return visible_text
+
+        except requests.exceptions.RequestException as e:
+            return f"Error fetching website: {e}"
+        except Exception as e:
+            return f"Error processing website content: {e}"
+
     def generate_posts(self):
         import time
         try:
@@ -562,6 +598,11 @@ class CSVAgentApp:
                 self.progress["value"] = idx + 1
 
                 context = {col_map.get(p, p): str(row[col_map.get(p, p)]) if col_map.get(p, p) in row and pd.notna(row[col_map.get(p, p)]) else "" for p in placeholders}
+
+                # Scrape website content if 'Website' or similar column is present
+                if 'Website' in context and context['Website']:
+                    scraped_content = self.scrape_website(context['Website'])
+                    context['WebsiteContent'] = scraped_content  # Add scraped content to context
 
                 missing_in_context = [p for p in placeholders if not context.get(col_map.get(p, p))]
                 if missing_in_context:
@@ -731,6 +772,47 @@ class CSVAgentApp:
             self.log_message(f"✅ Results downloaded successfully to: {download_path}", "info")
         except Exception as e:
             self.log_message(f"❌ Failed to download results: {str(e)}", "error")
+
+    def open_chat_test(self):
+        """Open a chat test window for testing requests."""
+        chat_window = tk.Toplevel(self.root)
+        chat_window.title("Chat Test")
+        chat_window.geometry("600x400")
+        chat_window.configure(bg="#f5f6fa")
+
+        tk.Label(chat_window, text="Enter your prompt:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 11, "bold")).pack(pady=10)
+
+        prompt_entry = tk.Text(chat_window, height=5, font=("Segoe UI", 10), bg="#dff9fb", fg="#30336b")
+        prompt_entry.pack(fill="x", padx=10, pady=5)
+
+        response_label = tk.Label(chat_window, text="Response:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 11, "bold"))
+        response_label.pack(pady=10)
+
+        response_text = tk.Text(chat_window, height=10, font=("Segoe UI", 10), bg="#dff9fb", fg="#30336b", state="disabled")
+        response_text.pack(fill="both", padx=10, pady=5, expand=True)
+
+        def send_prompt():
+            prompt = prompt_entry.get("1.0", "end").strip()
+            if not prompt:
+                messagebox.showwarning("Warning", "Please enter a prompt.")
+                return
+
+            response_text.config(state="normal")
+            response_text.delete("1.0", "end")
+            response_text.insert("1.0", "⏳ Generating response...")
+            response_text.config(state="disabled")
+
+            def generate_response():
+                response = self.generate_with_ollama(prompt)
+                response_text.config(state="normal")
+                response_text.delete("1.0", "end")
+                response_text.insert("1.0", response)
+                response_text.config(state="disabled")
+
+            threading.Thread(target=generate_response, daemon=True).start()
+
+        send_btn = tk.Button(chat_window, text="Send", command=send_prompt, bg="#7ed6df", fg="#222f3e", font=("Segoe UI", 10, "bold"))
+        send_btn.pack(pady=10)
 
 
 def main():
