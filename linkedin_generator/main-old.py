@@ -8,14 +8,14 @@ import threading
 import re
 import requests
 import json
-from bs4 import BeautifulSoup  # Add this import for web scraping
+from bs4 import BeautifulSoup
 
 
 class CSVAgentApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("AI Content Generator with Ollama")
-        self.root.geometry("1000x800")
+        self.root.title("Саньок")
+        self.root.geometry("1200x900")
 
         self.df = None
         self.filename = None
@@ -27,12 +27,20 @@ class CSVAgentApp:
         self.model_name = "llama3"
         self.is_ollama_connected = False
 
+        # Webhook configuration
+        self.webhook_url = "https://gregoreo999666.app.n8n.cloud/webhook-test/fb3fa389-7a33-46eb-85ee-ea8c5509db06"
+        self.use_webhook = False
+
         # UI widgets
         self.status_label = None
         self.model_var = None
         self.model_entry = None
+        self.webhook_var = None
+        self.webhook_url_var = None
+        self.webhook_url_entry = None
         self.refresh_btn = None
         self.console_btn = None
+        self.test_webhook_btn = None
         self.load_btn = None
         self.save_btn = None
         self.choose_file_btn = None
@@ -99,25 +107,49 @@ class CSVAgentApp:
             self.stop_btn = tk.Button(top_frame, text="⏹️ Stop", command=self.stop_generation, state="disabled", bg="#f6e58d", fg="#222f3e", font=("Segoe UI", 10, "bold"))
             self.stop_btn.pack(side="left", padx=5)
 
-            # Add Chat Test Button
-            self.chat_test_btn = tk.Button(top_frame, text="💬 Chat Test", command=self.open_chat_test, bg="#badc58", fg="#222f3e", font=("Segoe UI", 10, "bold"))
-            self.chat_test_btn.pack(side="left", padx=5)
+            # --- Model & webhook configuration frame ---
+            config_frame = tk.Frame(self.root, bg="#f5f6fa")
+            config_frame.pack(padx=10, pady=4, fill="x")
 
-            # --- Model & status frame ---
-            model_frame = tk.Frame(self.root, bg="#f5f6fa")
-            model_frame.pack(padx=10, pady=4, fill="x")
+            # Ollama section
+            ollama_frame = tk.Frame(config_frame, bg="#f5f6fa")
+            ollama_frame.pack(side="left", fill="x", expand=True)
 
-            tk.Label(model_frame, text="Ollama Status:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 10, "bold")).pack(side="left")
-            self.status_label = tk.Label(model_frame, text="⚪ Checking...", fg="orange", bg="#f5f6fa", font=("Segoe UI", 10, "bold"))
+            tk.Label(ollama_frame, text="Ollama Status:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 10, "bold")).pack(side="left")
+            self.status_label = tk.Label(ollama_frame, text="⚪ Checking...", fg="orange", bg="#f5f6fa", font=("Segoe UI", 10, "bold"))
             self.status_label.pack(side="left", padx=5)
 
             self.model_var = tk.StringVar(value="llama3")
-            tk.Label(model_frame, text="Model:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 10, "bold")).pack(side="left", padx=(20, 5))
-            self.model_entry = tk.Entry(model_frame, textvariable=self.model_var, width=15, font=("Segoe UI", 10))
+            tk.Label(ollama_frame, text="Model:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 10, "bold")).pack(side="left", padx=(20, 5))
+            self.model_entry = tk.Entry(ollama_frame, textvariable=self.model_var, width=15, font=("Segoe UI", 10))
             self.model_entry.pack(side="left")
 
-            self.refresh_btn = tk.Button(model_frame, text="🔄", command=self.check_ollama_connection, width=3, bg="#dff9fb", fg="#30336b", font=("Segoe UI", 10, "bold"))
+            self.refresh_btn = tk.Button(ollama_frame, text="🔄", command=self.check_ollama_connection, width=3, bg="#dff9fb", fg="#30336b", font=("Segoe UI", 10, "bold"))
             self.refresh_btn.pack(side="left", padx=5)
+
+            # Webhook section
+            webhook_frame = tk.Frame(config_frame, bg="#f5f6fa")
+            webhook_frame.pack(side="right", fill="x")
+
+            self.webhook_var = tk.BooleanVar()
+            webhook_check = tk.Checkbutton(webhook_frame, text="Use Webhook", variable=self.webhook_var, 
+                                         bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 10, "bold"),
+                                         command=self.toggle_webhook_mode)
+            webhook_check.pack(side="left", padx=5)
+
+            self.test_webhook_btn = tk.Button(webhook_frame, text="🧪 Test", command=self.test_webhook, 
+                                            bg="#ff9f43", fg="#222f3e", font=("Segoe UI", 10, "bold"))
+            self.test_webhook_btn.pack(side="left", padx=5)
+
+            # --- Webhook URL configuration ---
+            webhook_config_frame = tk.Frame(self.root, bg="#f5f6fa")
+            webhook_config_frame.pack(padx=10, pady=4, fill="x")
+
+            tk.Label(webhook_config_frame, text="Webhook URL:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 10, "bold")).pack(side="left")
+            self.webhook_url_var = tk.StringVar(value=self.webhook_url)
+            self.webhook_url_entry = tk.Entry(webhook_config_frame, textvariable=self.webhook_url_var, 
+                                            font=("Segoe UI", 10), width=80)
+            self.webhook_url_entry.pack(side="left", padx=5, fill="x", expand=True)
 
             # --- Columns & prompt frame ---
             cols_prompt_frame = tk.Frame(self.root, bg="#f5f6fa")
@@ -154,8 +186,6 @@ class CSVAgentApp:
             gen_frame = tk.Frame(self.root, bg="#f5f6fa")
             gen_frame.pack(padx=10, pady=8, fill="x")
 
-            # Remove Generate and Stop buttons from here
-
             # Progress row with details/message buttons (blue arrow row)
             progress_row = tk.Frame(gen_frame, bg="#f5f6fa")
             progress_row.pack(fill="x", pady=(0,2))
@@ -180,7 +210,6 @@ class CSVAgentApp:
             self.error_logs = []
             self.progress_label = tk.Label(self.details_frame, text="", fg="#576574", bg="#f5f6fa", font=("Segoe UI", 9), justify="left", wraplength=700)
             self.progress_label.pack_forget()
-            # Remove toggle buttons from here
 
             # --- Table preview ---
             preview_frame = tk.LabelFrame(self.root, text="📊 Table Preview", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 11, "bold"))
@@ -202,6 +231,10 @@ class CSVAgentApp:
             self.retry_btn = tk.Button(retry_frame, text="🔄 Retry Selected Row", command=self.retry_selected_row, bg="#7ed6df", fg="#222f3e", font=("Segoe UI", 12, "bold"))
             self.retry_btn.pack(side="left", padx=5)
 
+            # Add copy button in the preview frame
+            self.copy_btn = tk.Button(preview_frame, text="📋 Copy Selected Row", command=self.copy_selected_row, bg="#f6e58d", fg="#222f3e", font=("Segoe UI", 12, "bold"))
+            self.copy_btn.pack(side="left", padx=5)
+
         except Exception as e:
             import traceback
             err_msg = f"UI setup failed: {e}\n{traceback.format_exc()}"
@@ -210,27 +243,123 @@ class CSVAgentApp:
             fallback = tk.Label(self.root, text="Critical UI error. See error log.", fg="red", bg="#f5f6fa", font=("Segoe UI", 14, "bold"))
             fallback.pack(padx=20, pady=20)
 
-    def copy_selected_cell(self):
-        """Copy the value of the selected cell to clipboard."""
+    def toggle_webhook_mode(self):
+        """Toggle between Ollama and Webhook modes"""
+        self.use_webhook = self.webhook_var.get()
+        if self.use_webhook:
+            self.log_message("🌐 Switched to Webhook mode", "info")
+        else:
+            self.log_message("🤖 Switched to Ollama mode", "info")
+
+    def test_webhook(self):
+        """Test the webhook connection"""
+        def test():
+            try:
+                webhook_url = self.webhook_url_var.get().strip()
+                if not webhook_url:
+                    self.root.after(0, lambda: messagebox.showerror("Error", "Please enter a webhook URL"))
+                    return
+
+                payload = {
+                    "url": "https://wise-engineering.com/",
+                    "prompt": "Extract all paragraph texts"
+                }
+
+                headers = {
+                    "Content-Type": "application/json"
+                }
+
+                response = requests.post(webhook_url, json=payload, headers=headers, timeout=30)
+                
+                status_msg = f"Status: {response.status_code}"
+                if response.status_code == 200:
+                    self.root.after(0, lambda: messagebox.showinfo("Webhook Test", f"✅ Success!\n{status_msg}\nResponse: {response.text[:200]}..."))
+                    self.log_message(f"✅ Webhook test successful: {status_msg}", "info")
+                else:
+                    self.root.after(0, lambda: messagebox.showwarning("Webhook Test", f"⚠️ Status: {response.status_code}\nResponse: {response.text}"))
+                    self.log_message(f"⚠️ Webhook test warning: {status_msg}", "warning")
+
+            except requests.exceptions.Timeout:
+                self.root.after(0, lambda: messagebox.showerror("Webhook Test", "❌ Request timed out"))
+                self.log_message("❌ Webhook test failed: timeout", "error")
+            except requests.exceptions.RequestException as e:
+                self.root.after(0, lambda: messagebox.showerror("Webhook Test", f"❌ Connection failed: {str(e)}"))
+                self.log_message(f"❌ Webhook test failed: {str(e)}", "error")
+            except Exception as e:
+                self.root.after(0, lambda: messagebox.showerror("Webhook Test", f"❌ Error: {str(e)}"))
+                self.log_message(f"❌ Webhook test error: {str(e)}", "error")
+
+        threading.Thread(target=test, daemon=True).start()
+
+    def generate_with_webhook(self, prompt, context_data=None):
+        """Generate content using webhook"""
+        try:
+            webhook_url = self.webhook_url_var.get().strip()
+            if not webhook_url:
+                return "Error: No webhook URL configured"
+
+            # You can customize the payload based on your webhook requirements
+            payload = {
+                "prompt": prompt,
+                "data": context_data or {}
+            }
+
+            headers = {
+                "Content-Type": "application/json"
+            }
+
+            response = requests.post(webhook_url, json=payload, headers=headers, timeout=60)
+
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    # Adjust this based on your webhook's response format
+                    if isinstance(result, dict):
+                        return result.get('response', result.get('result', str(result)))
+                    else:
+                        return str(result)
+                except json.JSONDecodeError:
+                    return response.text.strip()
+            else:
+                return f"Error: HTTP {response.status_code} - {response.text}"
+
+        except requests.exceptions.Timeout:
+            return "Error: Webhook request timed out"
+        except requests.exceptions.RequestException as e:
+            return f"Error: Connection failed - {str(e)}"
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    def log_message(self, message, level="info"):
+        """Add a message to the error log"""
+        self.error_logs.append(message)
+        if self.error_log_visible.get():
+            self.update_details_area()
+
+    def copy_selected_row(self):
+        """Copy the values of the selected row to clipboard."""
         selected = self.tree.selection()
         if selected:
             item = selected[0]
-            # Try to get the column index from mouse position
-            col_id = self.tree.identify_column(self.tree.winfo_pointerx() - self.tree.winfo_rootx())
-            if col_id and col_id.startswith('#'):
-                col_idx = int(col_id[1:]) - 1
-            else:
-                col_idx = 0
             values = self.tree.item(item, 'values')
-            if values and col_idx < len(values):
-                value = values[col_idx]
+            if values:
+                # Join all columns with tab for easy pasting into Excel/Sheets
+                value = "\t".join(str(v) for v in values)
                 self.root.clipboard_clear()
                 self.root.clipboard_append(value)
                 messagebox.showinfo("Copied", f"Copied to clipboard:\n{value}")
             else:
-                messagebox.showwarning("Copy", "No cell value found.")
+                messagebox.showwarning("Copy", "No row data found.")
         else:
             messagebox.showwarning("Copy", "No row selected.")
+
+    # Add a button to copy selected cell in the table preview section
+    def add_copy_button(self, parent_frame):
+        self.copy_btn = tk.Button(parent_frame, text="📋 Copy Selected Row", command=self.copy_selected_cell, bg="#f6e58d", fg="#222f3e", font=("Segoe UI", 12, "bold"))
+        self.copy_btn.pack(side="left", padx=5)
+
+    # Modify setup_ui to add the copy button in the preview_frame
+    # (Call this after self.retry_btn in setup_ui)
 
     def choose_file_again(self):
         """Allow user to choose a new file and reload."""
@@ -403,7 +532,11 @@ class CSVAgentApp:
         # Insert all rows for preview (virtual scrolling for large files)
         max_rows = 1000  # Show up to 1000 rows for performance
         for idx, row in self.df.head(max_rows).iterrows():
-            values = [str(row[col])[:47] + "..." if pd.notna(row[col]) and len(str(row[col])) > 50 else str(row[col]) if pd.notna(row[col]) else "" for col in self.df.columns]
+            values = [
+                str(row[col]) if col == "AI_Generated_Column" else
+                (str(row[col])[:47] + "..." if pd.notna(row[col]) and len(str(row[col])) > 50 else str(row[col]) if pd.notna(row[col]) else "")
+                for col in self.df.columns
+            ]
             self.tree.insert("", "end", iid=idx, values=values)
 
         # If more rows, show a message
@@ -456,6 +589,7 @@ class CSVAgentApp:
                     }
                 }
 
+                # Shorter
                 # Shorter timeout with exponential backoff
                 timeout = 30 + (attempt * 15)  # 30s, 45s, 60s
 
@@ -599,10 +733,10 @@ class CSVAgentApp:
 
                 context = {col_map.get(p, p): str(row[col_map.get(p, p)]) if col_map.get(p, p) in row and pd.notna(row[col_map.get(p, p)]) else "" for p in placeholders}
 
-                # Scrape website content if 'Website' or similar column is present
-                if 'Website' in context and context['Website']:
-                    scraped_content = self.scrape_website(context['Website'])
-                    context['WebsiteContent'] = scraped_content  # Add scraped content to context
+                # Handle {website} variable
+                if 'website' in context and context['website']:
+                    website_content = self.scrape_website(context['website'])
+                    context['website_content'] = website_content  # Add scraped content to context
 
                 missing_in_context = [p for p in placeholders if not context.get(col_map.get(p, p))]
                 if missing_in_context:
@@ -772,47 +906,6 @@ class CSVAgentApp:
             self.log_message(f"✅ Results downloaded successfully to: {download_path}", "info")
         except Exception as e:
             self.log_message(f"❌ Failed to download results: {str(e)}", "error")
-
-    def open_chat_test(self):
-        """Open a chat test window for testing requests."""
-        chat_window = tk.Toplevel(self.root)
-        chat_window.title("Chat Test")
-        chat_window.geometry("800x700")
-        chat_window.configure(bg="#f5f6fa")
-
-        tk.Label(chat_window, text="Enter your prompt:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 11, "bold")).pack(pady=10)
-
-        prompt_entry = tk.Text(chat_window, height=5, font=("Segoe UI", 10), bg="#dff9fb", fg="#30336b")
-        prompt_entry.pack(fill="x", padx=10, pady=5)
-
-        response_label = tk.Label(chat_window, text="Response:", bg="#f5f6fa", fg="#30336b", font=("Segoe UI", 11, "bold"))
-        response_label.pack(pady=10)
-
-        response_text = tk.Text(chat_window, height=10, font=("Segoe UI", 10), bg="#dff9fb", fg="#30336b", state="disabled")
-        response_text.pack(fill="both", padx=10, pady=5, expand=True)
-
-        def send_prompt():
-            prompt = prompt_entry.get("1.0", "end").strip()
-            if not prompt:
-                messagebox.showwarning("Warning", "Please enter a prompt.")
-                return
-
-            response_text.config(state="normal")
-            response_text.delete("1.0", "end")
-            response_text.insert("1.0", "⏳ Generating response...")
-            response_text.config(state="disabled")
-
-            def generate_response():
-                response = self.generate_with_ollama(prompt)
-                response_text.config(state="normal")
-                response_text.delete("1.0", "end")
-                response_text.insert("1.0", response)
-                response_text.config(state="disabled")
-
-            threading.Thread(target=generate_response, daemon=True).start()
-
-        send_btn = tk.Button(chat_window, text="Send", command=send_prompt, bg="#7ed6df", fg="#222f3e", font=("Segoe UI", 10, "bold"))
-        send_btn.pack(pady=10)
 
 
 def main():

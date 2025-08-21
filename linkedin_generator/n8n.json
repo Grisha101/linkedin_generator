@@ -1,0 +1,133 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "scrape-website",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json[\"url\"]}}"
+      },
+      "id": "2",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const cheerio = require('cheerio');\nconst $ = cheerio.load($json[\"body\"]);\nconst prompt = $json[\"prompt\"];\n\n// Implement logic to extract data based on the prompt\n// Example: Extracting all paragraph texts\nconst extractedData = [];\n$('p').each((i, el) => {\n  extractedData.push($(el).text());\n});\n\nreturn [{ json: { extractedData } }];"
+      },
+      "id": "3",
+      "name": "Data Extraction",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a helpful assistant."
+          },
+          {
+            "role": "user",
+            "content": "={{$json[\"extractedData\"]}}"
+          }
+        ]
+      },
+      "id": "4",
+      "name": "LLM Processing",
+      "type": "n8n-nodes-base.openAi",
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "responseData": "={{$json[\"choices\"][0][\"message\"][\"content\"]}}"
+      },
+      "id": "5",
+      "name": "Respond to API",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1050,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Data Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Extraction": {
+      "main": [
+        [
+          {
+            "node": "LLM Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Processing": {
+      "main": [
+        [
+          {
+            "node": "Respond to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "errorWorkflow": ""
+  },
+  "name": "Web Scraping Workflow",
+  "active": true
+}
